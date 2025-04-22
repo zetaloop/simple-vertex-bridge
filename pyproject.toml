@@ -9,6 +9,7 @@ dependencies = [
     "fastapi",
     "uvicorn",
     "requests",
+    "httpx",
     "apscheduler",
 ]
 
