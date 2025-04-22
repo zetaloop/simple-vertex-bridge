@@ -1,0 +1,7 @@
+[project]
+name = "simple-vertex-bridge"
+version = "0.1.0"
+description = "A simple Vertex AI proxy that renews tokens for you"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = []
