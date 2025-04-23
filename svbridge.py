@@ -18,7 +18,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 CONFIG_FILE = "svbridge-config.json"
 DEFAULT_CONFIG: dict[str, str | bool | int | None] = {
     "port": 8086,
-    "host": "localhost",
+    "bind": "localhost",
     "key": "",
     "access_token": None,
     "token_expiry": None,
@@ -408,17 +408,21 @@ async def shutdown_event():
 def main():
     """Entry point"""
     load_config()
-    host = config.get("host")
+    bind = config.get("bind")
     port = config.get("port")
     key = config.get("key")
-    assert isinstance(host, str)
+    assert isinstance(bind, str)
     assert isinstance(port, int)
     assert isinstance(key, str)
 
-    logger.info(f'Set host="{host}", port={port}')
-    if host not in ("localhost", "127.0.0.1", "::1") and not key:
-        logger.warning(f'Server "{host}" is exposed to the internet, please set a key!')
-    uvicorn.run("svbridge:app", host=host, port=port)
+    logger.info(f"--------")
+    logger.info(f"Server: http://{bind}:{port}")
+    if bind not in ("localhost", "127.0.0.1", "::1") and not key:
+        logger.warning(f"[Auth] Server is exposed to the internet, PLEASE SET A KEY!")
+    elif key:
+        logger.info(f'API key: "{key}"')
+    logger.info(f"--------")
+    uvicorn.run("svbridge:app", host=bind, port=port)
 
 
 if __name__ == "__main__":
