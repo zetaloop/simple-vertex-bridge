@@ -16,7 +16,10 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 # Configurations
 CONFIG_FILE = "svbridge-config.json"
-DEFAULT_CONFIG: dict[str, str | bool | None] = {
+DEFAULT_CONFIG: dict[str, str | bool | int | None] = {
+    "port": 8086,
+    "host": "localhost",
+    "key": "",
     "access_token": None,
     "token_expiry": None,
     "auto_refresh": True,
@@ -51,7 +54,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 token_lock = RLock()
-config: dict[str, str | bool | None] = {}
+config: dict[str, str | bool | int | None] = {}
 logging.config.dictConfig(LOGGING_CONFIG)
 logger: logging.Logger = logging.getLogger("uvicorn")
 http_client: httpx.AsyncClient | None = None  # Reusable httpx client
@@ -373,7 +376,18 @@ async def shutdown_event():
 
 def main():
     """Entry point"""
-    uvicorn.run("svbridge:app", host="localhost", port=8086)
+    load_config()
+    host = config.get("host")
+    port = config.get("port")
+    key = config.get("key")
+    assert isinstance(host, str)
+    assert isinstance(port, int)
+    assert isinstance(key, str)
+
+    logger.info(f'Set host="{host}", port={port}')
+    if host not in ("localhost", "127.0.0.1", "::1") and not key:
+        logger.warning(f'Server "{host}" is exposed to the internet, please set a key!')
+    uvicorn.run("svbridge:app", host=host, port=port)
 
 
 if __name__ == "__main__":
