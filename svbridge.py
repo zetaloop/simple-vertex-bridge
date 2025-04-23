@@ -1,5 +1,6 @@
 import os
 import json
+import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 from threading import RLock
@@ -17,11 +18,22 @@ DEFAULT_CONFIG: dict[str, str | bool | None] = {
     "access_token": None,
     "token_expiry": None,
     "auto_refresh": True,
+    "filter_model_names": True,
 }
 
 LOCATION = "us-central1"
 PROJECT_ID = None  # to be set on startup
 ENDPOINT_ID = "openapi"
+PUBLISHERS = (
+    "google",
+    "anthropic",
+    "meta",
+)  # No api to list them all, you can manually add them
+MODEL_NAMES_FILTER = (
+    "google/gemini-",
+    "anthropic/claude-",
+    "meta/llama-",
+)  # Usually you wouldnt want to sift through hundreds of irrelevant ones
 
 TOKEN_EXPIRY_BUFFER = timedelta(minutes=10)
 BACKGROUND_INTERVAL = 5  # minutes
@@ -223,6 +235,102 @@ async def chat_completions(request: Request):
         status_code=status_code,
         media_type=media_type,
     )
+
+
+@app.api_route("/v1/models", methods=["GET"])
+@app.api_route("/models", methods=["GET"])
+async def models(request: Request):
+    """Fetches available models from Vertex and returns them in OpenAI format"""
+    assert PROJECT_ID
+    logger.info(f"[Models] Received request: {request.url.path}")
+    token = get_token()
+    if not token:
+        logger.error("[Models] No valid token for models request")
+        raise HTTPException(status_code=500, detail="Failed to obtain token")
+
+    # Get all publishers asynchronously
+    async def retry_request(session, publisher, url, headers, max_retries=3):
+        for attempt in range(max_retries):
+            try:
+                response = await session.get(url, headers=headers)
+                logger.info(f"[Models] {response.status_code} {publisher}")
+                return response
+            except httpx.RequestError as e:
+                if attempt < max_retries - 1:
+                    logger.warning(
+                        f'[Models] Failed to fetch models for publisher "{publisher}", will retry in 200ms: {type(e).__name__}'
+                        + (f", {e}" if str(e) else "")
+                    )
+                    await asyncio.sleep(0.2)
+                    continue
+                return e
+
+    async with httpx.AsyncClient() as client:
+        tasks = [
+            retry_request(
+                client,
+                publisher,
+                f"https://{LOCATION}-aiplatform.googleapis.com/v1beta1/publishers/{publisher}/models",
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {token}",
+                    "x-goog-user-project": PROJECT_ID,
+                },
+            )
+            for publisher in PUBLISHERS
+        ]
+        responses = await asyncio.gather(*tasks, return_exceptions=True)
+
+    # Convert to OpenAI format
+    all_models = []
+    for publisher, resp in zip(PUBLISHERS, responses):
+        if isinstance(resp, Exception):
+            logger.warning(
+                f'[Models] Failed to fetch models for publisher "{publisher}": {type(resp).__name__}'
+                + (f", {resp}" if str(resp) else "")
+            )
+            continue
+        assert isinstance(resp, httpx.Response)
+        if resp.status_code == 200:
+            data = resp.json()
+            publisher_models = data.get("publisherModels", [])
+            for model in publisher_models:
+                name = model.get("name")
+                if name:
+                    parts = name.split("/")
+                    if (
+                        len(parts) == 4
+                        and parts[0] == "publishers"
+                        and parts[2] == "models"
+                    ):
+                        model_publisher = parts[1]
+                        model_name = parts[3]
+                        model_id = f"{model_publisher}/{model_name}"
+                        all_models.append(
+                            {
+                                "id": model_id,
+                                "object": "model",
+                                "owned_by": model_publisher,
+                            }
+                        )
+        else:
+            logger.warning(
+                f'[Models] Failed to fetch models for publisher "{publisher}": {resp.status_code} {resp.text}.'
+            )
+
+    # Prefix filter
+    if config.get("filter_model_names", True):
+        all_models_count = len(all_models)
+        all_models = [
+            model
+            for model in all_models
+            if any(model["id"].startswith(prefix) for prefix in MODEL_NAMES_FILTER)
+        ]
+        logger.info(f"[Models] Fetched {len(all_models)}/{all_models_count} models")
+    else:
+        logger.info(f"[Models] Fetched {len(all_models)} models")
+
+    return {"object": "list", "data": all_models}
 
 
 def startup_event():
