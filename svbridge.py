@@ -104,7 +104,7 @@ def get_gcloud_project_id() -> str:
 
     # If this fails, you need to set up gcloud authentication
     _, project_id = default()
-    assert project_id, "Project ID not found"
+    assert project_id, "Project ID not found, please set up gcloud authentication"
     return project_id
 
 
