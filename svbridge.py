@@ -38,7 +38,7 @@ PUBLISHERS = (
 MODEL_NAMES_FILTER = (
     "google/gemini-",
     "anthropic/claude-",
-    "meta/llama-",
+    "meta/llama",
 )  # Usually you wouldnt want to sift through hundreds of irrelevant ones
 
 TOKEN_EXPIRY_BUFFER = timedelta(minutes=10)
