@@ -42,15 +42,16 @@ BACKGROUND_INTERVAL = 5  # minutes
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan event to load config on startup"""
-    startup_event()
+    await startup_event()
     yield
-    shutdown_event()
+    await shutdown_event()
 
 
 app = FastAPI(lifespan=lifespan)
 token_lock = RLock()
 config: dict[str, str | bool | None] = {}
 logger = logging.getLogger("uvicorn")
+http_client: httpx.AsyncClient | None = None  # Reusable httpx client
 
 
 def load_config():
@@ -208,17 +209,17 @@ async def chat_completions(request: Request):
     body = await request.body()
 
     async def stream_with_header():
-        async with httpx.AsyncClient(http2=True, timeout=None) as client:
-            async with client.stream(
-                request.method,
-                target,
-                headers=headers,
-                content=body,
-            ) as resp:
-                yield resp.status_code, resp.headers.get("content-type")
+        assert http_client
+        async with http_client.stream(
+            request.method,
+            target,
+            headers=headers,
+            content=body,
+        ) as resp:
+            yield resp.status_code, resp.headers.get("content-type")
 
-                async for chunk in resp.aiter_bytes():
-                    yield chunk
+            async for chunk in resp.aiter_bytes():
+                yield chunk
 
     ait = stream_with_header()
     status_code, media_type = await ait.__anext__()
@@ -267,21 +268,21 @@ async def models(request: Request):
                     continue
                 return e
 
-    async with httpx.AsyncClient(http2=True) as client:
-        tasks = [
-            retry_request(
-                client,
-                publisher,
-                f"https://{LOCATION}-aiplatform.googleapis.com/v1beta1/publishers/{publisher}/models",
-                headers={
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {token}",
-                    "x-goog-user-project": PROJECT_ID,
-                },
-            )
-            for publisher in PUBLISHERS
-        ]
-        responses = await asyncio.gather(*tasks, return_exceptions=True)
+    assert http_client
+    tasks = [
+        retry_request(
+            http_client,
+            publisher,
+            f"https://{LOCATION}-aiplatform.googleapis.com/v1beta1/publishers/{publisher}/models",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {token}",
+                "x-goog-user-project": PROJECT_ID,
+            },
+        )
+        for publisher in PUBLISHERS
+    ]
+    responses = await asyncio.gather(*tasks, return_exceptions=True)
 
     # Convert to OpenAI format
     all_models = []
@@ -335,8 +336,13 @@ async def models(request: Request):
     return {"object": "list", "data": all_models}
 
 
-def startup_event():
+async def startup_event():
     """Startup event"""
+    global http_client
+    logger.info("[HTTPClient] Creating reusable client...")
+    http_client = httpx.AsyncClient(http2=True, timeout=None)
+    logger.info("[HTTPClient] Created reusable client")
+
     global PROJECT_ID
     logger.info("[Google] Getting default project ID...")
     PROJECT_ID = get_gcloud_project_id()
@@ -353,8 +359,13 @@ def startup_event():
         refresh_token()  # Run once immediately
 
 
-def shutdown_event():
-    pass
+async def shutdown_event():
+    """Shutdown event"""
+    global http_client
+    if http_client:
+        await http_client.aclose()
+        logger.info("[HTTPClient] Closed reusable client")
+        http_client = None
 
 
 def main():
