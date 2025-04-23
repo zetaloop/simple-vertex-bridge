@@ -208,7 +208,7 @@ async def chat_completions(request: Request):
     body = await request.body()
 
     async def stream_with_header():
-        async with httpx.AsyncClient(timeout=None) as client:
+        async with httpx.AsyncClient(http2=True, timeout=None) as client:
             async with client.stream(
                 request.method,
                 target,
@@ -265,7 +265,7 @@ async def models(request: Request):
                     continue
                 return e
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(http2=True) as client:
         tasks = [
             retry_request(
                 client,

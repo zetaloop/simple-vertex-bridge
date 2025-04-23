@@ -17,6 +17,7 @@ dependencies = [
     "uvicorn",
     "requests",
     "httpx",
+    "h2",
     "apscheduler",
 ]
 classifiers = [
