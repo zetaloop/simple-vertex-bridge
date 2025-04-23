@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 import httpx
 import uvicorn
 from uvicorn.config import LOGGING_CONFIG
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Depends, Header
 from fastapi.responses import StreamingResponse
 from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -179,13 +179,43 @@ def get_token():
         return config.get("access_token")
 
 
+async def verify_token(authorization: str | None = Header(None)):
+    """Verify the Bearer token if key is set"""
+    auth_key = config.get("key")
+    if auth_key:  # Only check if key is set
+        if not authorization:
+            logger.warning("[Auth] Missing Authorization header")
+            raise HTTPException(status_code=401, detail="Missing Authorization header")
+
+        parts = authorization.split()
+        if len(parts) != 2 or parts[0].lower() != "bearer":
+            logger.warning(
+                f"[Auth] Invalid Authorization header format: {authorization}"
+            )
+            raise HTTPException(
+                status_code=401, detail="Invalid Authorization header format"
+            )
+
+        token = parts[1]
+        if token != auth_key:
+            logger.warning("[Auth] Invalid token")
+            raise HTTPException(status_code=401, detail="Invalid token")
+        logger.info("[Auth] Token verified successfully")
+
+
 @app.get("/")
 async def root():
     return "Hello, this is Simple Vertex Bridge! UwU"
 
 
-@app.api_route("/v1/chat/completions", methods=["GET", "POST"])
-@app.api_route("/chat/completions", methods=["GET", "POST"])
+@app.api_route(
+    "/v1/chat/completions",
+    methods=["GET", "POST"],
+    dependencies=[Depends(verify_token)],
+)
+@app.api_route(
+    "/chat/completions", methods=["GET", "POST"], dependencies=[Depends(verify_token)]
+)
 async def chat_completions(request: Request):
     """Proxy to Vertex AI with Bearer token"""
     logger.info(f"[Proxy] Received request: {request.url.path}")
@@ -244,8 +274,8 @@ async def chat_completions(request: Request):
     )
 
 
-@app.api_route("/v1/models", methods=["GET"])
-@app.api_route("/models", methods=["GET"])
+@app.api_route("/v1/models", methods=["GET"], dependencies=[Depends(verify_token)])
+@app.api_route("/models", methods=["GET"], dependencies=[Depends(verify_token)])
 async def models(request: Request):
     """Fetches available models from Vertex and returns them in OpenAI format"""
     assert PROJECT_ID
