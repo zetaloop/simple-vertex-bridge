@@ -1,4 +1,5 @@
 import os
+import argparse
 import json
 import asyncio
 import logging
@@ -407,7 +408,62 @@ async def shutdown_event():
 
 def main():
     """Entry point"""
+    parser = argparse.ArgumentParser(description="Simple Vertex Bridge /UwU")
+    parser.add_argument(
+        "-p",
+        "--port",
+        type=int,
+        nargs="?",
+        const=8086,
+        help="Port to listen on (default: 8086)",
+    )
+    parser.add_argument(
+        "-b",
+        "--bind",
+        type=str,
+        nargs="?",
+        const="localhost",
+        help="Host to bind to (default: localhost)",
+    )
+    parser.add_argument(
+        "-k",
+        "--key",
+        type=str,
+        nargs="?",
+        const="",
+        help="Specify the API key, if not set (as default), accept any key",
+    )
+
+    # Boolean flags for auto-refresh
+    refresh_group = parser.add_mutually_exclusive_group()
+    refresh_group.add_argument(
+        "--auto-refresh",
+        action=argparse.BooleanOptionalAction,
+        dest="auto_refresh",
+        help="Background token refresh check every 5 minutes (default: on)",
+    )
+
+    # Boolean flags for model filtering
+    filter_group = parser.add_mutually_exclusive_group()
+    filter_group.add_argument(
+        "--filter-model-names",
+        action=argparse.BooleanOptionalAction,
+        dest="filter_model_names",
+        help="Filtering common model names (default: on)",
+    )
+
+    args = parser.parse_args()
+
     load_config()
+    config_updated = False
+    for key, value in vars(args).items():
+        if value is not None:  # Check if the argument was actually passed
+            if config.get(key) != value:
+                config[key] = value
+                config_updated = True
+    if config_updated:
+        save_config()
+
     bind = config.get("bind")
     port = config.get("port")
     key = config.get("key")
