@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 import httpx
 import uvicorn
 from uvicorn.config import LOGGING_CONFIG
-from fastapi import FastAPI, Request, HTTPException, Depends, Header
+from fastapi import FastAPI, Request, HTTPException, Depends, Header, APIRouter
 from fastapi.responses import StreamingResponse
 from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -53,6 +53,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+router = APIRouter()
 token_lock = RLock()
 config: dict[str, str | bool | int | None] = {}
 logging.config.dictConfig(LOGGING_CONFIG)
@@ -208,13 +209,10 @@ async def root():
     return "Hello, this is Simple Vertex Bridge! UwU"
 
 
-@app.api_route(
-    "/v1/chat/completions",
+@router.api_route(
+    "/chat/completions",
     methods=["GET", "POST"],
     dependencies=[Depends(verify_token)],
-)
-@app.api_route(
-    "/chat/completions", methods=["GET", "POST"], dependencies=[Depends(verify_token)]
 )
 async def chat_completions(request: Request):
     """Proxy to Vertex AI with Bearer token"""
@@ -274,8 +272,7 @@ async def chat_completions(request: Request):
     )
 
 
-@app.api_route("/v1/models", methods=["GET"], dependencies=[Depends(verify_token)])
-@app.api_route("/models", methods=["GET"], dependencies=[Depends(verify_token)])
+@router.api_route("/models", methods=["GET"], dependencies=[Depends(verify_token)])
 async def models(request: Request):
     """Fetches available models from Vertex and returns them in OpenAI format"""
     assert PROJECT_ID
@@ -370,6 +367,10 @@ async def models(request: Request):
         logger.info(f"[Models] Fetched {len(all_models)} models")
 
     return {"object": "list", "data": all_models}
+
+
+app.include_router(router)
+app.include_router(router, prefix="/v1")
 
 
 async def startup_event():
