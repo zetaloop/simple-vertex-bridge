@@ -2,12 +2,14 @@ import os
 import json
 import asyncio
 import logging
+import logging.config
 from datetime import datetime, timedelta, timezone
 from threading import RLock
 from contextlib import asynccontextmanager
 
 import httpx
 import uvicorn
+from uvicorn.config import LOGGING_CONFIG
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import StreamingResponse
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -50,7 +52,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 token_lock = RLock()
 config: dict[str, str | bool | None] = {}
-logger = logging.getLogger("uvicorn")
+logging.config.dictConfig(LOGGING_CONFIG)
+logger: logging.Logger = logging.getLogger("uvicorn")
 http_client: httpx.AsyncClient | None = None  # Reusable httpx client
 
 
@@ -71,7 +74,7 @@ def load_config():
                 logger.error(f"[Config] Failed to load config and using defaults: {e}")
                 config = DEFAULT_CONFIG.copy()
         else:
-            logger.info(f"[Config] No config file found, using defaults")
+            logger.warning(f"[Config] No config file found, using defaults")
             config = DEFAULT_CONFIG.copy()
         for k, v in DEFAULT_CONFIG.items():
             config.setdefault(k, v)
