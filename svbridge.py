@@ -249,6 +249,8 @@ async def models(request: Request):
         raise HTTPException(status_code=500, detail="Failed to obtain token")
 
     # Get all publishers asynchronously
+    logger.info(f"[Models] Fetching models from {len(PUBLISHERS)} publishers...")
+
     async def retry_request(session, publisher, url, headers, max_retries=3):
         for attempt in range(max_retries):
             try:
@@ -336,6 +338,7 @@ async def models(request: Request):
 def startup_event():
     """Startup event"""
     global PROJECT_ID
+    logger.info("[Google] Getting default project ID...")
     PROJECT_ID = get_gcloud_project_id()
     logger.info(f"[Google] Project ID: {PROJECT_ID}")
 
