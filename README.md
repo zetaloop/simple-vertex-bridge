@@ -33,7 +33,25 @@ There are two ways to authenticate:
 ### Now your API is ready
 - Model List: `http://localhost:8086/v1/models`, v1 can be omitted.
 - API Endpoint: `http://localhost:8086/v1/chat/completions`, v1 can be omitted.
-- API Key: `anything`, the bridge will replace it with the Vertex AI token.
+- API Key: Default is anything (if you specify a key, you must use it), will be replaced with Vertex AI token.
+
+## CLI Arguments
+The bridge uses a configuration file `svbridge-config.json` located in the current working directory. It's created automatically on the first run if it doesn't exist.
+
+You can override the configuration using command-line arguments when launching the bridge. These arguments will also update the configuration file.
+
+- `-p [PORT]`, `--port [PORT]`: Port to listen on (default: 8086).
+- `-b [BIND]`, `--bind [BIND]`: Host address to bind to (default: localhost).
+- `-k [KEY]`, `--key [KEY]`: Specify the API key required for authentication. If not set (default), any key will be accepted.
+- `--auto-refresh`/`--no-auto-refresh`: Enable/disable automatic background refresh of the Vertex token (default: enabled).
+- `--filter-model-names`/`--no-filter-model-names`: Enable/disable filtering of common model names in the `/models` endpoint (default: enabled).
+- `-h`, `--help`: Show help message.
+
+Example:
+```bash
+# Run publicly on port 8848 and set key 'svb-cRztHvmE50'
+python svbridge.py -p 8848 -b 0.0.0.0 -k svb-cRztHvmE50
+```
 
 ## License
 

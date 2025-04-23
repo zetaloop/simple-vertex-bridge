@@ -33,7 +33,25 @@
 ### 好了
 - 模型列表: `http://localhost:8086/v1/models`，v1 可以省略。
 - API 地址: `http://localhost:8086/v1/chat/completions`，v1 可以省略。
-- API 密钥: `填什么都行`，会被替换成 Vertex AI 令牌。
+- API 密钥: 默认填什么都行，如果指定了一个密钥则必须填密钥，会被替换成 Vertex AI 令牌。
+
+## 命令行参数
+服务使用位于当前工作目录的 `svbridge-config.json` 配置文件。如果文件不存在，首次运行时会自动创建。
+
+你可以在启动服务时通过命令行参数来覆盖配置。这些参数也会更新配置文件。
+
+- `-p [PORT]`, `--port [PORT]`：监听的端口（默认 8086）。
+- `-b [BIND]`, `--bind [BIND]`：绑定的主机地址（默认 localhost）。
+- `-k [KEY]`, `--key [KEY]`：指定 API 密钥。如果设空（默认），则允许使用任何密钥。
+- `--auto-refresh`/`--no-auto-refresh`：启用/禁用后台自动刷新 Vertex 令牌（默认启用）。
+- `--filter-model-names`/`--no-filter-model-names`：启用/禁用在 `/models` 接口过滤常见模型名称（默认启用）。
+- `-h`, `--help`：显示帮助信息。
+
+示例:
+```bash
+# 在端口 8848 公开运行，并设定密钥 'svb-cRztHvmE50'
+python svbridge.py -p 8848 -b 0.0.0.0 -k svb-cRztHvmE50
+```
 
 ## 开源协议
 
