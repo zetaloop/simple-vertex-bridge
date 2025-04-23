@@ -4,6 +4,13 @@ A simple Vertex AI proxy that automatically refresh tokens for you.
 
 [[中文]](README.zh.md)
 
+## Feature
+- OpenAI style chat completion API with token attached
+- OpenAI style model list API
+- Automatically refresh tokens
+- Stream output
+- Reused h2 connection
+
 ## Usage
 ### Prerequisites
 - Install [uv](https://docs.astral.sh/uv/getting-started/installation).
@@ -24,6 +31,7 @@ There are two ways to authenticate:
 2. Or clone this repo and enter and run `uv sync`, then activate venv and run `python svbridge.py`.
 
 ### Now your API is ready
+- Model List: `http://localhost:8086/v1/models`, v1 can be omitted.
 - API Endpoint: `http://localhost:8086/v1/chat/completions`, v1 can be omitted.
 - API Key: `anything`, the bridge will replace it with the Vertex AI token.
 

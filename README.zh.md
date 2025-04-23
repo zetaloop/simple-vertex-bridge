@@ -4,6 +4,13 @@
 
 [[English]](README.md)
 
+## 功能
+- OpenAI 格式的聊天补全 API，自带访问令牌
+- OpenAI 格式的模型列表 API
+- 自动刷新访问令牌
+- 流式输出
+- 复用 h2 连接
+
 ## 使用指南
 ### 准备
 - 安装 [uv](https://docs.astral.sh/uv/getting-started/installation)。
@@ -24,6 +31,7 @@
 2. 也可以克隆仓库后在里边运行 `uv sync`，激活虚拟环境，然后运行 `python svbridge.py`。
 
 ### 好了
+- 模型列表: `http://localhost:8086/v1/models`，v1 可以省略。
 - API 地址: `http://localhost:8086/v1/chat/completions`，v1 可以省略。
 - API 密钥: `填什么都行`，会被替换成 Vertex AI 令牌。
 
